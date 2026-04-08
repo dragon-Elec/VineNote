@@ -13,14 +13,11 @@ const NavigationBar = function() {
   return (
     <div className={styles.navigation_bar}>
       <Navigation />
-      {
-        selectedNav === 'notes' && <FolderList />
-      }
-      {
-        selectedNav === 'tags' && <TagList />
-      }
+      {selectedNav === 'notes' && <FolderList />}
+      {selectedNav === 'tags' && <TagList />}
     </div>
   )
 };
 
 export default NavigationBar;
+

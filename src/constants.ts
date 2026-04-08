@@ -2,4 +2,4 @@
 
 export const APP_PATH = 'VineNote';
 
-export type NavTypes = 'notes' | 'rss' | 'tags';
+export type NavTypes = 'notes' | 'rss' | 'tags' | 'sources' | 'inbox' | 'cards';

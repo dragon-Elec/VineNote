@@ -1,16 +1,28 @@
 import SideBar from "./components/side-bar";
 import Editor from "./components/editor";
+import PipelineDetail from "./components/pipeline";
 import { SettingsProvider } from "./components/settings";
+import { useSelectedNav } from "./components/navigation-bar/controllers/selected-nav";
 import "./App.css";
 
-function App() {
+const PIPELINE_MODES = ["sources", "inbox", "cards"];
+
+function AppContent() {
+  const selectedNav = useSelectedNav((s) => s.selectedNav);
+  const isPipelineMode = PIPELINE_MODES.includes(selectedNav);
 
   return (
+    <main className="main">
+      <SideBar />
+      {isPipelineMode ? <PipelineDetail /> : <Editor />}
+    </main>
+  );
+}
+
+function App() {
+  return (
     <SettingsProvider>
-      <main className="main">
-        <SideBar />
-        <Editor />
-      </main>
+      <AppContent />
     </SettingsProvider>
   );
 }
