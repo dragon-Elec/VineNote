@@ -94,7 +94,7 @@ export function SearchResults({ results, keyword, allFiles }: SearchResultsProps
       {results.map((result, resultIndex) => {
         const { file_path, matches } = result;
         const isSelected = selectedItem.file_path === file_path;
-        const showFilePath = file_path.replace(/(-([^-]+)){1,5}.json/, "");
+        const showFilePath = file_path.replace(/(-([^-]+)){1,5}\.(md|json)$/, "");
         const showFilePathStrs = showFilePath.split('/');
         const showFileName = showFilePathStrs[showFilePathStrs.length - 1];
         return (

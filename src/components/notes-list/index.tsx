@@ -100,7 +100,7 @@ const NotesList = function () {
     const theFolderPath = folderPaths
       .slice(0, folderPaths.length - 1)
       .join("/");
-    const newFilePath = `${theFolderPath}/${inputValue}-${oldFile.id}.json`;
+    const newFilePath = `${theFolderPath}/${inputValue}-${oldFile.id}.md`;
     renameFile(oldFilePath, newFilePath).then(() => {
       const newFile = {
         id: oldFile.id,
@@ -231,7 +231,7 @@ const NotesList = function () {
       const newDataSource = files.map((item) => {
         return {
           ...item,
-          name: item.name.replace(/(-([^-]+)){1,5}.json/, ""),
+          name: item.name.replace(/(-([^-]+)){1,5}\.(md|json)$/, ""),
         };
       });
       setDataSource(newDataSource);

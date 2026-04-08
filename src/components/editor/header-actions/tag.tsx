@@ -108,10 +108,10 @@ const AddTag = function () {
   useEffect(() => {
     getTagList().then((ret) => {
       console.log("file tags ret", ret);
-      const { filePath, dataSource } = ret;
-      tagFilePathRef.current = filePath;
+      const { dataSource } = ret;
       setAvailableTags(dataSource);
-      if (dataSource.length > 0) {
+      if (dataSource.length > 0 && selectedFile?.path) {
+        // Derive selected tags from the file's own frontmatter tags list
         setSelectedTags(
           dataSource.filter((item) =>
             item.files.some((fileItem) => fileItem.path === selectedFile?.path)
@@ -119,7 +119,7 @@ const AddTag = function () {
         );
       }
     });
-  }, []);
+  }, [selectedFile?.path]);
 
   return (
     <Popover>
