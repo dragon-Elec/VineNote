@@ -3,6 +3,7 @@ import Editor from "./components/editor";
 import PipelineDetail from "./components/pipeline";
 import { SettingsProvider } from "./components/settings";
 import { useSelectedNav } from "./components/navigation-bar/controllers/selected-nav";
+import { RightPanel } from "./components/right-panel";
 import "./App.css";
 
 const PIPELINE_MODES = ["sources", "inbox", "cards"];
@@ -15,6 +16,7 @@ function AppContent() {
     <main className="main">
       <SideBar />
       {isPipelineMode ? <PipelineDetail /> : <Editor />}
+      <RightPanel />
     </main>
   );
 }

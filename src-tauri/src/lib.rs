@@ -12,9 +12,11 @@ mod scheduler;
 mod search_keyword;
 mod sources;
 mod tags;
+mod terminal;
 
 use ai_state::AiState;
 use db_state::DbState;
+use terminal::TerminalState;
 use read_dir_recursive::read_dir_recursive;
 use rss::fetch_and_parse_rss;
 use search_keyword::{search_files, SearchResult};
@@ -120,6 +122,9 @@ pub fn run() {
                 inbox_dir,
             });
 
+            // Terminal PTY state
+            app.manage(std::sync::Arc::new(TerminalState::new()));
+
             // Start background scheduler daemon
             scheduler::start(app.handle().clone(), sched_db, ai_arc);
 
@@ -156,6 +161,11 @@ pub fn run() {
             llm::copilot_complete,
             // AI config
             ai_state::update_ai_config,
+            // Terminal PTY
+            terminal::create_terminal,
+            terminal::write_terminal,
+            terminal::resize_terminal,
+            terminal::kill_terminal,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

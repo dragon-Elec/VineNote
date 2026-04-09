@@ -1,7 +1,7 @@
 "use client";
 
 import { useTranslation } from "react-i18next";
-import { Notebook, Tag, Settings, CircleHelp, Rss, Inbox, Sparkles } from "lucide-react";
+import { Notebook, Tag, Settings, CircleHelp, Rss, Inbox, Sparkles, MessageSquare, SquareTerminal } from "lucide-react";
 import { Button } from "../ui/button";
 import { cn } from '@/lib/utils';
 import { useSelectedNav } from './controllers/selected-nav';
@@ -9,6 +9,7 @@ import { SettingsDialog } from "../settings";
 import openIssue from "./controllers/open-issue";
 import { useInboxStore } from "@/components/pipeline/controllers/use-inbox";
 import { useEffect } from "react";
+import { useRightPanel } from "@/components/right-panel/use-right-panel";
 import styles from "./index.module.css";
 
 const Navigation = function () {
@@ -16,6 +17,7 @@ const Navigation = function () {
   const { selectedNav, setSelectedNav } = useSelectedNav();
   const inboxBadges = useInboxStore((s) => s.badges);
   const fetchBadges = useInboxStore((s) => s.fetchBadges);
+  const { isOpen: panelOpen, activeTab: panelTab, toggle: togglePanel } = useRightPanel();
 
   // Fetch badge count on mount so the nav badge is accurate from the start
   useEffect(() => {
@@ -76,6 +78,64 @@ const Navigation = function () {
       {pipelineItems.map(({ id, name, Icon, badge }) =>
         renderNavButton(id, name, Icon, badge)
       )}
+
+      {/* Divider before tools */}
+      <div className="mx-3 my-1.5 border-t border-border/60" />
+      <div className="px-3 mb-0.5">
+        <span className="text-[10px] font-medium text-muted-foreground/60 uppercase tracking-wider">
+          Tools
+        </span>
+      </div>
+
+      {/* Chat toggle */}
+      <Button
+        variant="ghost"
+        className={cn(
+          "w-full justify-start cursor-pointer text-[13px]",
+          panelOpen && panelTab === "chat" ? "bg-accent" : ""
+        )}
+        onClick={() => togglePanel("chat")}
+      >
+        <MessageSquare
+          className={cn(
+            "shrink-0",
+            panelOpen && panelTab === "chat" ? "text-foreground" : "text-muted-foreground"
+          )}
+          size={14}
+        />
+        <span
+          className={cn(
+            panelOpen && panelTab === "chat" ? "text-foreground font-medium" : "text-muted-foreground"
+          )}
+        >
+          Chat
+        </span>
+      </Button>
+
+      {/* Terminal toggle */}
+      <Button
+        variant="ghost"
+        className={cn(
+          "w-full justify-start cursor-pointer text-[13px]",
+          panelOpen && panelTab === "terminal" ? "bg-accent" : ""
+        )}
+        onClick={() => togglePanel("terminal")}
+      >
+        <SquareTerminal
+          className={cn(
+            "shrink-0",
+            panelOpen && panelTab === "terminal" ? "text-foreground" : "text-muted-foreground"
+          )}
+          size={14}
+        />
+        <span
+          className={cn(
+            panelOpen && panelTab === "terminal" ? "text-foreground font-medium" : "text-muted-foreground"
+          )}
+        >
+          Terminal
+        </span>
+      </Button>
 
       {/* Divider before settings */}
       <div className="mx-3 my-1.5 border-t border-border/60" />
