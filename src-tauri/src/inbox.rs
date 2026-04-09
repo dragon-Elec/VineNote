@@ -15,6 +15,9 @@ pub struct InboxItem {
     pub status: String,
     pub word_count: Option<i64>,
     pub ingested_at: String,
+    pub reader_status: Option<String>,
+    pub content_source: Option<String>,
+    pub source_type: Option<String>,
 }
 
 #[derive(Debug, Serialize, Deserialize)]
@@ -33,10 +36,10 @@ pub fn list_inbox_items(
     let conn = state.conn.lock().map_err(|e| e.to_string())?;
 
     let sql = if status.is_some() {
-        "SELECT id, source_id, source_name, file_path, title, url, status, word_count, ingested_at
+        "SELECT id, source_id, source_name, file_path, title, url, status, word_count, ingested_at, reader_status, content_source, source_type
          FROM inbox_items WHERE status = ?1 ORDER BY ingested_at DESC"
     } else {
-        "SELECT id, source_id, source_name, file_path, title, url, status, word_count, ingested_at
+        "SELECT id, source_id, source_name, file_path, title, url, status, word_count, ingested_at, reader_status, content_source, source_type
          FROM inbox_items ORDER BY ingested_at DESC"
     };
 
@@ -60,6 +63,9 @@ pub fn list_inbox_items(
             status: row.get(6).map_err(|e| e.to_string())?,
             word_count: row.get(7).map_err(|e| e.to_string())?,
             ingested_at: row.get(8).map_err(|e| e.to_string())?,
+            reader_status: row.get(9).map_err(|e| e.to_string())?,
+            content_source: row.get(10).map_err(|e| e.to_string())?,
+            source_type: row.get(11).map_err(|e| e.to_string())?,
         });
     }
     Ok(items)
@@ -155,8 +161,8 @@ pub fn add_inbox_item_manual(
 
     let conn = state.conn.lock().map_err(|e| e.to_string())?;
     conn.execute(
-        "INSERT INTO inbox_items (id, source_id, source_name, file_path, title, url, status, word_count, ingested_at)
-         VALUES (?1, NULL, ?2, ?3, ?4, ?5, 'unread', ?6, ?7)",
+        "INSERT INTO inbox_items (id, source_id, source_name, file_path, title, url, status, word_count, ingested_at, source_type)
+         VALUES (?1, NULL, ?2, ?3, ?4, ?5, 'unread', ?6, ?7, 'manual')",
         params![id, source_name, file_path_str, title, url, word_count, ingested_at],
     )
     .map_err(|e| e.to_string())?;
@@ -171,6 +177,9 @@ pub fn add_inbox_item_manual(
         status: "unread".to_string(),
         word_count: Some(word_count),
         ingested_at,
+        reader_status: Some("pending".to_string()),
+        content_source: None,
+        source_type: Some("manual".to_string()),
     })
 }
 

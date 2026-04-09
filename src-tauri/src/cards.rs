@@ -167,6 +167,9 @@ pub fn get_card_sources(
                     status: row.get(6)?,
                     word_count: row.get(7)?,
                     ingested_at: row.get(8)?,
+                    reader_status: None,
+                    content_source: None,
+                    source_type: None,
                 })
             },
         ) {

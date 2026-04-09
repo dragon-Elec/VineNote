@@ -45,8 +45,30 @@ pub async fn process_pending_items(
     };
 
     for item in items {
+        let item_id = item.id.clone();
         if let Err(e) = process_item(&app, &db, &ai, item).await {
-            eprintln!("[reader_agent] process_item error: {e}");
+            eprintln!("[reader_agent] process_item error for {item_id}: {e}");
+            // Increment retry_count; if >= 3, mark as failed so it stops being retried.
+            if let Ok(conn) = db.conn.lock() {
+                let count: i64 = conn
+                    .query_row(
+                        "SELECT retry_count FROM inbox_items WHERE id = ?1",
+                        params![item_id],
+                        |row| row.get(0),
+                    )
+                    .unwrap_or(0);
+                if count >= 2 {
+                    let _ = conn.execute(
+                        "UPDATE inbox_items SET reader_status = 'failed', retry_count = retry_count + 1 WHERE id = ?1",
+                        params![item_id],
+                    );
+                } else {
+                    let _ = conn.execute(
+                        "UPDATE inbox_items SET reader_status = 'pending', retry_count = retry_count + 1 WHERE id = ?1",
+                        params![item_id],
+                    );
+                }
+            }
         }
     }
 }
@@ -62,13 +84,25 @@ async fn process_item(
     // Mark as "fetching" so we don't pick it up again in parallel
     set_reader_status(db, &item.id, "fetching")?;
 
-    // Step 1: get full text (fetch URL or fall back to RSS markdown)
-    let (full_text, content_source) = match item.url.as_deref() {
-        Some(url) if !url.is_empty() => match fetch_full_text(url).await {
-            Ok(text) if text.split_whitespace().count() >= 100 => (text, "full"),
+    // Step 1: get full text
+    // Twitter and Bilibili are video/social platforms: the content is already in the .md body
+    // (tweet text from Nitter RSS, video description from Bilibili API).
+    // Trying Jina/HTTP would waste 30-45s and return unhelpful content.
+    let skip_fetch = matches!(
+        item.source_type.as_deref(),
+        Some("twitter") | Some("bilibili")
+    );
+
+    let (full_text, content_source) = if skip_fetch {
+        (read_markdown_body(db, &item)?, "summary")
+    } else {
+        match item.url.as_deref() {
+            Some(url) if !url.is_empty() => match fetch_full_text(url).await {
+                Ok(text) if text.split_whitespace().count() >= 100 => (text, "full"),
+                _ => (read_markdown_body(db, &item)?, "summary"),
+            },
             _ => (read_markdown_body(db, &item)?, "summary"),
-        },
-        _ => (read_markdown_body(db, &item)?, "summary"),
+        }
     };
 
     // Update markdown file with full text if we got the real article
@@ -110,7 +144,55 @@ async fn process_item(
 
 // ── Full text extraction ──────────────────────────────────────────────────────
 
+/// Route to the best extractor based on URL.
+/// Priority: YouTube transcript → Jina Reader → direct HTML + readability.
 async fn fetch_full_text(url: &str) -> Result<String, String> {
+    // 1. YouTube: try native transcript API
+    if let Some(video_id) = extract_youtube_video_id(url) {
+        match fetch_youtube_transcript(&video_id).await {
+            Ok(t) if t.split_whitespace().count() >= 50 => return Ok(t),
+            Ok(_) => {}
+            Err(e) => eprintln!("[youtube transcript] {e}"),
+        }
+    }
+
+    // 2. Jina Reader: handles JS-rendered pages, returns clean Markdown
+    match fetch_via_jina(url).await {
+        Ok(t) if t.split_whitespace().count() >= 100 => return Ok(t),
+        Ok(_) => {}
+        Err(e) => eprintln!("[jina] {e}"),
+    }
+
+    // 3. Fallback: direct HTTP + readability
+    fetch_via_direct(url).await
+}
+
+/// Fetch via Jina Reader (https://r.jina.ai/{url}) — returns clean Markdown.
+async fn fetch_via_jina(url: &str) -> Result<String, String> {
+    let jina_url = format!("https://r.jina.ai/{}", url);
+    let client = reqwest::Client::builder()
+        .user_agent("Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36")
+        .timeout(std::time::Duration::from_secs(30))
+        .build()
+        .map_err(|e| e.to_string())?;
+
+    let resp = client
+        .get(&jina_url)
+        .header("Accept", "text/plain")
+        .header("X-Return-Format", "markdown")
+        .send()
+        .await
+        .map_err(|e| format!("Jina error: {e}"))?;
+
+    if !resp.status().is_success() {
+        return Err(format!("Jina HTTP {}", resp.status()));
+    }
+
+    resp.text().await.map_err(|e| format!("Jina read: {e}"))
+}
+
+/// Direct HTTP fetch + readability extraction (original implementation).
+async fn fetch_via_direct(url: &str) -> Result<String, String> {
     let client = reqwest::Client::builder()
         .user_agent("Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36")
         .timeout(std::time::Duration::from_secs(15))
@@ -132,89 +214,381 @@ async fn fetch_full_text(url: &str) -> Result<String, String> {
     extract_article_text(&html)
 }
 
+// ── YouTube transcript (no external tools) ───────────────────────────────────
+
+/// Extract the 11-char video ID from a YouTube URL. Returns None for non-video URLs.
+pub fn extract_youtube_video_id(url: &str) -> Option<String> {
+    // https://www.youtube.com/watch?v=XXXXXXXXXXX
+    if url.contains("youtube.com/watch") {
+        if let Some(pos) = url.find("v=") {
+            let after = &url[pos + 2..];
+            let id: String = after.chars().take_while(|&c| c != '&' && c != '#' && c != '/').collect();
+            if id.len() == 11 {
+                return Some(id);
+            }
+        }
+    }
+    // https://youtu.be/XXXXXXXXXXX
+    if let Some(pos) = url.find("youtu.be/") {
+        let after = &url[pos + 9..];
+        let id: String = after.chars().take_while(|&c| c != '?' && c != '#' && c != '/').collect();
+        if id.len() == 11 {
+            return Some(id);
+        }
+    }
+    None
+}
+
+/// Fetch the auto-generated or manual transcript for a YouTube video.
+/// Uses YouTube's internal timedtext API — no yt-dlp required.
+async fn fetch_youtube_transcript(video_id: &str) -> Result<String, String> {
+    let client = reqwest::Client::builder()
+        .user_agent("Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36")
+        .timeout(std::time::Duration::from_secs(20))
+        .build()
+        .map_err(|e| e.to_string())?;
+
+    let page_url = format!("https://www.youtube.com/watch?v={}", video_id);
+    let resp = client
+        .get(&page_url)
+        .header("Accept-Language", "en-US,en;q=0.9,zh-CN;q=0.8,zh;q=0.7")
+        .send()
+        .await
+        .map_err(|e| format!("YouTube fetch: {e}"))?;
+
+    let html = resp.text().await.map_err(|e| format!("YouTube read: {e}"))?;
+
+    // Extract captionTracks JSON array from embedded page data
+    let tracks = extract_caption_tracks(&html);
+    if tracks.is_empty() {
+        return Err("No caption tracks found".to_string());
+    }
+
+    // Choose: zh (manual) > en (manual) > zh (asr) > en (asr) > first available
+    let track_url = choose_best_track_url(&tracks)
+        .ok_or("No suitable caption track")?;
+
+    let xml_resp = client
+        .get(&track_url)
+        .send()
+        .await
+        .map_err(|e| format!("Caption fetch: {e}"))?;
+
+    let xml = xml_resp.text().await.map_err(|e| format!("Caption read: {e}"))?;
+    let transcript = parse_timedtext_xml(&xml);
+
+    if transcript.is_empty() {
+        return Err("Empty transcript".to_string());
+    }
+    Ok(transcript)
+}
+
+/// Extract captionTracks from a YouTube watch page.
+/// Returns Vec<(languageCode, kind, baseUrl)>.
+fn extract_caption_tracks(html: &str) -> Vec<(String, String, String)> {
+    let marker = "\"captionTracks\":";
+    let Some(start) = html.find(marker) else { return vec![] };
+    let rest = &html[start + marker.len()..];
+    let Some(bracket_pos) = rest.find('[') else { return vec![] };
+    let arr_str = &rest[bracket_pos..];
+
+    // Find balanced ] accounting for strings
+    let mut depth = 0i32;
+    let mut in_string = false;
+    let mut escape = false;
+    let mut end_idx = arr_str.len();
+
+    for (i, c) in arr_str.char_indices() {
+        if escape { escape = false; continue; }
+        if in_string {
+            if c == '\\' { escape = true; }
+            else if c == '"' { in_string = false; }
+        } else {
+            match c {
+                '"' => in_string = true,
+                '[' => depth += 1,
+                ']' => {
+                    depth -= 1;
+                    if depth == 0 { end_idx = i + 1; break; }
+                }
+                _ => {}
+            }
+        }
+    }
+
+    let json_array = &arr_str[..end_idx];
+    let arr: serde_json::Value = match serde_json::from_str(json_array) {
+        Ok(v) => v,
+        Err(e) => {
+            eprintln!("[youtube] captionTracks parse error: {e}");
+            return vec![];
+        }
+    };
+
+    let mut tracks = Vec::new();
+    if let Some(arr) = arr.as_array() {
+        for track in arr {
+            let base_url = track["baseUrl"].as_str().unwrap_or("").to_string();
+            let lang = track["languageCode"].as_str().unwrap_or("").to_string();
+            let kind = track["kind"].as_str().unwrap_or("").to_string();
+            if !base_url.is_empty() {
+                tracks.push((lang, kind, base_url));
+            }
+        }
+    }
+    tracks
+}
+
+/// Pick the best caption track: prefer zh, then en; prefer non-asr (manual) over asr.
+fn choose_best_track_url(tracks: &[(String, String, String)]) -> Option<String> {
+    let find = |lang_prefix: &str, require_manual: bool| -> Option<String> {
+        tracks.iter()
+            .find(|(lang, kind, _)| {
+                lang.starts_with(lang_prefix) && (!require_manual || kind != "asr")
+            })
+            .map(|(_, _, url)| url.clone())
+    };
+
+    find("zh", true)
+        .or_else(|| find("en", true))
+        .or_else(|| find("zh", false))
+        .or_else(|| find("en", false))
+        .or_else(|| tracks.first().map(|(_, _, u)| u.clone()))
+}
+
+/// Parse YouTube timedtext XML into plain text (strips timing tags + bracketed sounds).
+fn parse_timedtext_xml(xml: &str) -> String {
+    use quick_xml::events::Event;
+    use quick_xml::Reader;
+
+    let mut reader = Reader::from_str(xml);
+    reader.config_mut().trim_text(true);
+
+    let mut buf = Vec::new();
+    let mut texts: Vec<String> = Vec::new();
+    let mut in_text = false;
+
+    loop {
+        match reader.read_event_into(&mut buf) {
+            Ok(Event::Start(ref e)) => {
+                if e.name().as_ref() == b"text" { in_text = true; }
+            }
+            Ok(Event::Text(ref e)) if in_text => {
+                if let Ok(t) = e.unescape() {
+                    let s = t.trim().to_string();
+                    // Skip bracketed sound descriptions: [Music], [Applause], etc.
+                    if !s.is_empty() && !s.starts_with('[') {
+                        texts.push(s);
+                    }
+                }
+            }
+            Ok(Event::End(ref e)) => {
+                if e.name().as_ref() == b"text" { in_text = false; }
+            }
+            Ok(Event::Eof) | Err(_) => break,
+            _ => {}
+        }
+        buf.clear();
+    }
+
+    // Join into continuous text with sentence-aware spacing
+    texts.join(" ").split_whitespace().collect::<Vec<_>>().join(" ")
+}
+
+// Tags that are always noise and should be skipped entirely.
+const NOISE_TAGS: &[&str] = &[
+    "script", "style", "nav", "footer", "header", "aside",
+    "noscript", "form", "iframe", "button", "select", "textarea",
+    "figure", "figcaption",
+];
+
+// Class / id fragments that indicate non-content regions.
+const BAD_PATTERNS: &[&str] = &[
+    "sidebar", "widget", "menu", "nav", "comment", "footer", "header",
+    "ad-", "advert", "sponsor", "promo", "social", "share", "banner",
+    "popup", "modal", "cookie", "toolbar", "related", "recommend",
+    "breadcrumb", "pagination", "author-bio", "newsletter", "subscribe",
+    "toc", "table-of-contents",
+];
+
+// Class / id fragments that strongly indicate content regions.
+const GOOD_PATTERNS: &[&str] = &[
+    "article", "content", "post-body", "post-content", "entry-content",
+    "article-body", "article-content", "story-body", "prose",
+    "blog-post", "single-content", "main-content", "page-content",
+    "entry-body", "post__content",
+];
+
+/// Readability-style extraction:
+/// 1. Score every block-level element by text density.
+/// 2. Pick the highest-scoring candidate.
+/// 3. Convert it to Markdown preserving heading/list structure.
 fn extract_article_text(html: &str) -> Result<String, String> {
     use scraper::{Html, Selector};
 
     let doc = Html::parse_document(html);
 
-    // Remove noise elements first
-    // Note: scraper is immutable, so we work with selectors to skip noise during extraction
+    let block_sel = Selector::parse(
+        "article, main, [role='main'], [role='article'], section, div",
+    )
+    .map_err(|e| e.to_string())?;
 
-    // Priority selectors for main content
-    let candidate_selectors = [
-        "article",
-        "[role='main']",
-        "main",
-        ".post-content",
-        ".article-body",
-        ".entry-content",
-        ".article-content",
-        ".post-body",
-        ".content-body",
-        "#article-body",
-        "#main-content",
-    ];
+    let a_sel = Selector::parse("a").map_err(|e| e.to_string())?;
 
-    let noise_selector = Selector::parse(
-        "script, style, nav, footer, header, aside, noscript, .sidebar, .menu, .comments, .ad, .banner, .navigation"
-    ).unwrap();
+    let mut best_score: i64 = 0;
+    let mut best_element: Option<scraper::ElementRef<'_>> = None;
 
-    for sel_str in &candidate_selectors {
-        if let Ok(sel) = Selector::parse(sel_str) {
-            if let Some(element) = doc.select(&sel).next() {
-                let text = extract_text_from_element(&doc, &element, &noise_selector);
-                if text.split_whitespace().count() >= 100 {
-                    return Ok(text);
-                }
-            }
+    for element in doc.select(&block_sel) {
+        let tag = element.value().name();
+        let class = element.value().attr("class").unwrap_or("").to_lowercase();
+        let id = element.value().attr("id").unwrap_or("").to_lowercase();
+        let combined = format!("{class} {id}");
+
+        // Skip known noise containers by class / id.
+        if BAD_PATTERNS.iter().any(|bad| combined.contains(bad)) {
+            continue;
+        }
+
+        // Require a minimum word count to be a real content block.
+        let all_text: String = element.text().collect();
+        let total_words = all_text.split_whitespace().count();
+        if total_words < 80 {
+            continue;
+        }
+
+        // Penalise link-heavy blocks (navigation / related-posts sections).
+        let link_text: String = element.select(&a_sel).flat_map(|a| a.text()).collect();
+        let link_words = link_text.split_whitespace().count();
+        let link_density = link_words as f64 / total_words.max(1) as f64;
+        if link_density > 0.5 {
+            continue;
+        }
+
+        let mut score = (total_words as f64 * (1.0 - link_density)) as i64;
+
+        // Semantic tag bonuses.
+        if tag == "article" || tag == "main" {
+            score += 200;
+        }
+
+        // Good class/id bonuses.
+        if GOOD_PATTERNS.iter().any(|good| combined.contains(good)) {
+            score += 100;
+        }
+
+        if score > best_score {
+            best_score = score;
+            best_element = Some(element);
         }
     }
 
-    // Fallback: paragraph density algorithm
-    // Collect all <p> tags, join if substantial
-    if let Ok(p_sel) = Selector::parse("p") {
-        let paragraphs: Vec<String> = doc
-            .select(&p_sel)
-            .map(|el| el.text().collect::<Vec<_>>().join(" ").trim().to_string())
-            .filter(|t| t.split_whitespace().count() > 10)
-            .collect();
-
-        if !paragraphs.is_empty() {
-            return Ok(paragraphs.join("\n\n"));
+    // Convert the winner to Markdown.
+    if let Some(el) = best_element {
+        let md = element_to_markdown(*el);
+        if md.split_whitespace().count() >= 100 {
+            return Ok(md);
         }
     }
 
-    Err("Could not extract article content".to_string())
+    // Fallback: join all substantial <p> tags when no clear winner found.
+    let p_sel = Selector::parse("p").map_err(|e| e.to_string())?;
+    let paras: Vec<String> = doc
+        .select(&p_sel)
+        .map(|el| el.text().collect::<Vec<_>>().join(" ").trim().to_string())
+        .filter(|t| t.split_whitespace().count() > 15)
+        .collect();
+
+    if paras.is_empty() {
+        return Err("Could not extract article content".to_string());
+    }
+    Ok(paras.join("\n\n"))
 }
 
-fn extract_text_from_element(
-    _doc: &scraper::Html,
-    element: &scraper::ElementRef,
-    noise_selector: &scraper::Selector,
-) -> String {
-    // Collect text, skipping noise children
+/// Convert an ego_tree node (and all its descendants) to Markdown text,
+/// skipping noise elements and preserving heading / list / blockquote structure.
+fn element_to_markdown(node: ego_tree::NodeRef<'_, scraper::Node>) -> String {
+    let mut buf = String::new();
+    node_to_md(node, &mut buf);
+
+    // Normalise: collapse multiple blank lines → single blank line, trim lines.
     let mut result = String::new();
-    for node in element.descendants() {
-        if let Some(el) = scraper::ElementRef::wrap(node) {
-            // Skip noise elements
-            if el.select(noise_selector).next().is_some() {
-                continue;
+    let mut prev_blank = false;
+    for line in buf.lines() {
+        let trimmed = line.trim();
+        if trimmed.is_empty() {
+            if !prev_blank {
+                result.push('\n');
             }
-            let tag = el.value().name();
-            if ["script", "style", "nav", "footer", "header", "aside", "noscript"].contains(&tag) {
-                continue;
-            }
-            if ["p", "h1", "h2", "h3", "h4", "li"].contains(&tag) {
-                let text: String = el.text().collect::<Vec<_>>().join(" ");
-                let text = text.trim();
-                if !text.is_empty() {
-                    result.push_str(text);
-                    result.push('\n');
-                }
-            }
+            prev_blank = true;
+        } else {
+            prev_blank = false;
+            result.push_str(trimmed);
+            result.push('\n');
         }
     }
     result.trim().to_string()
+}
+
+fn node_to_md(node: ego_tree::NodeRef<'_, scraper::Node>, buf: &mut String) {
+    use scraper::Node;
+
+    match node.value() {
+        Node::Text(text) => {
+            let t = text.trim();
+            if !t.is_empty() {
+                buf.push_str(t);
+                buf.push(' ');
+            }
+        }
+        Node::Element(el) => {
+            let tag = el.name();
+            let class = el.attr("class").unwrap_or("").to_lowercase();
+            let id = el.attr("id").unwrap_or("").to_lowercase();
+            let combined = format!("{class} {id}");
+
+            // Skip noise tags entirely — do not recurse into them.
+            if NOISE_TAGS.contains(&tag) {
+                return;
+            }
+            // Skip noise by class / id.
+            if BAD_PATTERNS.iter().any(|bad| combined.contains(bad)) {
+                return;
+            }
+
+            // Emit block prefix before children.
+            let prefix: &str = match tag {
+                "h1" => "\n# ",
+                "h2" => "\n## ",
+                "h3" => "\n### ",
+                "h4" | "h5" | "h6" => "\n#### ",
+                "li" => "\n- ",
+                "blockquote" => "\n> ",
+                "p" | "div" | "section" | "article" | "main" => "\n",
+                "br" => "\n",
+                _ => "",
+            };
+            buf.push_str(prefix);
+
+            // Recurse into children.
+            for child in node.children() {
+                node_to_md(child, buf);
+            }
+
+            // Emit block suffix after children.
+            let suffix: &str = match tag {
+                "h1" | "h2" | "h3" | "h4" | "h5" | "h6"
+                | "p" | "li" | "blockquote" | "div" | "section" => "\n",
+                _ => "",
+            };
+            buf.push_str(suffix);
+        }
+        // Document / Fragment / Comment — just recurse.
+        _ => {
+            for child in node.children() {
+                node_to_md(child, buf);
+            }
+        }
+    }
 }
 
 // ── Markdown helpers ──────────────────────────────────────────────────────────
@@ -287,7 +661,7 @@ Content:
         title = item.title,
         source = item.source_name.as_deref().unwrap_or(""),
         url = item.url.as_deref().unwrap_or(""),
-        body = &body[..body.len().min(8000)],
+        body = truncate_chars(body, 6000),
     );
 
     let request_body = serde_json::json!({
@@ -350,6 +724,15 @@ Content:
 
     serde_json::from_str::<CardDraft>(json_str)
         .map_err(|e| format!("Failed to parse card JSON: {e}\nRaw: {json_str}"))
+}
+
+/// Safely truncate a &str to at most `max_chars` Unicode scalar values.
+/// Unlike byte-slicing, this never panics on multi-byte (CJK) content.
+fn truncate_chars(s: &str, max_chars: usize) -> &str {
+    match s.char_indices().nth(max_chars) {
+        Some((idx, _)) => &s[..idx],
+        None => s,
+    }
 }
 
 fn build_system_prompt(cfg: &crate::ai_state::AiConfig) -> String {
@@ -544,8 +927,8 @@ fn fetch_pending_items(db: &DbState) -> Result<Vec<InboxItem>, String> {
     let conn = db.conn.lock().map_err(|e| e.to_string())?;
     let mut stmt = conn
         .prepare(
-            "SELECT id, source_id, source_name, file_path, title, url, status, word_count, ingested_at
-             FROM inbox_items WHERE reader_status = 'pending' ORDER BY ingested_at ASC LIMIT 10",
+            "SELECT id, source_id, source_name, file_path, title, url, status, word_count, ingested_at, source_type
+             FROM inbox_items WHERE reader_status = 'pending' AND retry_count < 3 ORDER BY ingested_at ASC LIMIT 10",
         )
         .map_err(|e| e.to_string())?;
 
@@ -562,6 +945,9 @@ fn fetch_pending_items(db: &DbState) -> Result<Vec<InboxItem>, String> {
             status: row.get(6).map_err(|e| e.to_string())?,
             word_count: row.get(7).map_err(|e| e.to_string())?,
             ingested_at: row.get(8).map_err(|e| e.to_string())?,
+            reader_status: None,
+            content_source: None,
+            source_type: row.get(9).map_err(|e| e.to_string())?,
         });
     }
     Ok(items)

@@ -36,6 +36,7 @@ export default function SourcesPanel() {
   const [newName, setNewName] = useState("");
   const [newType, setNewType] = useState<Source["source_type"]>("rss");
   const [newUrl, setNewUrl] = useState("");
+  const [newConfig, setNewConfig] = useState("");
   const [collecting, setCollecting] = useState<string | null>(null);
   const [collectingAll, setCollectingAll] = useState(false);
 
@@ -46,9 +47,10 @@ export default function SourcesPanel() {
   const handleAdd = async () => {
     if (!newName.trim()) return;
     try {
-      await addSource(newName.trim(), newType, newUrl.trim() || undefined);
+      await addSource(newName.trim(), newType, newUrl.trim() || undefined, newConfig.trim() || undefined);
       setNewName("");
       setNewUrl("");
+      setNewConfig("");
       setShowAdd(false);
     } catch (e) {
       console.error(e);
@@ -144,13 +146,84 @@ export default function SourcesPanel() {
               )}
             </SelectContent>
           </Select>
-          {(newType === "rss" || newType === "podcast" || newType === "youtube") && (
+          {(newType === "rss" || newType === "podcast") && (
             <Input
               placeholder="https://..."
               value={newUrl}
               onChange={(e) => setNewUrl(e.target.value)}
               className="h-7 text-xs"
             />
+          )}
+          {newType === "youtube" && (
+            <div className="space-y-1">
+              <Input
+                placeholder={t("youtubeUrlPlaceholder")}
+                value={newUrl}
+                onChange={(e) => setNewUrl(e.target.value)}
+                className="h-7 text-xs"
+              />
+              <p className="text-[10px] text-muted-foreground px-0.5">
+                {t("youtubeUrlHint")}
+              </p>
+            </div>
+          )}
+          {newType === "bilibili" && (
+            <div className="space-y-1">
+              <Input
+                placeholder={t("bilibiliUrlPlaceholder")}
+                value={newUrl}
+                onChange={(e) => setNewUrl(e.target.value)}
+                className="h-7 text-xs"
+              />
+              <p className="text-[10px] text-muted-foreground px-0.5">
+                {t("bilibiliUrlHint")}
+              </p>
+            </div>
+          )}
+          {newType === "reddit" && (
+            <div className="space-y-1">
+              <Input
+                placeholder={t("redditUrlPlaceholder")}
+                value={newUrl}
+                onChange={(e) => setNewUrl(e.target.value)}
+                className="h-7 text-xs"
+              />
+              <p className="text-[10px] text-muted-foreground px-0.5">
+                {t("redditUrlHint")}
+              </p>
+            </div>
+          )}
+          {newType === "twitter" && (
+            <div className="space-y-1">
+              <Input
+                placeholder={t("twitterUrlPlaceholder")}
+                value={newUrl}
+                onChange={(e) => setNewUrl(e.target.value)}
+                className="h-7 text-xs"
+              />
+              <Input
+                placeholder={t("twitterConfigPlaceholder")}
+                value={newConfig}
+                onChange={(e) => setNewConfig(e.target.value)}
+                className="h-7 text-xs font-mono"
+              />
+              <p className="text-[10px] text-muted-foreground px-0.5">
+                {t("twitterUrlHint")}
+              </p>
+            </div>
+          )}
+          {newType === "bookmark" && (
+            <div className="space-y-1">
+              <Input
+                placeholder={t("bookmarkPathPlaceholder")}
+                value={newUrl}
+                onChange={(e) => setNewUrl(e.target.value)}
+                className="h-7 text-xs"
+              />
+              <p className="text-[10px] text-muted-foreground px-0.5">
+                {t("bookmarkPathHint")}
+              </p>
+            </div>
           )}
           <div className="flex gap-2">
             <Button

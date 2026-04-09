@@ -11,7 +11,8 @@ interface SourcesState {
   addSource: (
     name: string,
     source_type: string,
-    url?: string
+    url?: string,
+    config?: string
   ) => Promise<Source>;
   deleteSource: (id: string) => Promise<void>;
   toggleActive: (id: string, active: boolean) => Promise<void>;
@@ -36,12 +37,12 @@ export const useSourcesStore = create<SourcesState>((set, get) => ({
     }
   },
 
-  addSource: async (name, source_type, url) => {
+  addSource: async (name, source_type, url, config) => {
     const source: Source = await invoke("add_source", {
       name,
       sourceType: source_type,
       url: url ?? null,
-      config: null,
+      config: config ?? null,
     });
     set((state) => ({ sources: [source, ...state.sources] }));
     return source;

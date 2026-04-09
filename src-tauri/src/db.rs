@@ -25,7 +25,9 @@ pub const SCHEMA: &str = "
         word_count    INTEGER,
         ingested_at   TEXT NOT NULL,
         reader_status TEXT NOT NULL DEFAULT 'pending',
-        content_source TEXT
+        content_source TEXT,
+        retry_count   INTEGER NOT NULL DEFAULT 0,
+        source_type   TEXT
     );
 
     CREATE TABLE IF NOT EXISTS cards (
@@ -64,6 +66,12 @@ pub fn init_db(db_path: &Path) -> Result<Connection> {
     );
     let _ = conn.execute_batch(
         "ALTER TABLE inbox_items ADD COLUMN content_source TEXT;",
+    );
+    let _ = conn.execute_batch(
+        "ALTER TABLE inbox_items ADD COLUMN retry_count INTEGER NOT NULL DEFAULT 0;"
+    );
+    let _ = conn.execute_batch(
+        "ALTER TABLE inbox_items ADD COLUMN source_type TEXT;"
     );
     Ok(conn)
 }

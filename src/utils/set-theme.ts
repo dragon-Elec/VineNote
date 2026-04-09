@@ -11,8 +11,10 @@ export const setTheme = function (theme: Theme) {
       : "light";
 
     root.classList.add(systemTheme);
+    localStorage.removeItem("vn-theme");
     return;
   }
 
   root.classList.add(theme);
+  localStorage.setItem("vn-theme", theme);
 };

@@ -1,10 +1,10 @@
 // Shared types for the AI Pipeline (Sources, Inbox, Cards)
-import { Rss, Mic, Play, FileText, Bookmark, PenLine } from "lucide-react";
+import { Rss, Mic, Play, FileText, Bookmark, PenLine, Video, MessageCircle, Twitter } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 
 export interface Source {
   id: string;
-  source_type: "rss" | "podcast" | "youtube" | "pdf" | "bookmark" | "manual";
+  source_type: "rss" | "podcast" | "youtube" | "pdf" | "bookmark" | "manual" | "bilibili" | "reddit" | "twitter";
   name: string;
   url?: string;
   config?: string;
@@ -59,6 +59,9 @@ export const SOURCE_TYPE_LABELS: Record<Source["source_type"], { Icon: LucideIco
   rss: { Icon: Rss, label: "RSS" },
   podcast: { Icon: Mic, label: "Podcast" },
   youtube: { Icon: Play, label: "YouTube" },
+  bilibili: { Icon: Video, label: "Bilibili" },
+  reddit: { Icon: MessageCircle, label: "Reddit" },
+  twitter: { Icon: Twitter, label: "Twitter/X" },
   pdf: { Icon: FileText, label: "PDF" },
   bookmark: { Icon: Bookmark, label: "Bookmarks" },
   manual: { Icon: PenLine, label: "Manual" },
