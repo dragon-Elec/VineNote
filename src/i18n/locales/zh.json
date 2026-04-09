@@ -284,5 +284,13 @@
   "personaOutputActions": "生成行动建议",
   "personaCustomPrompt": "自定义指令",
   "personaCustomPromptTip": "补充你的阅读偏好，AI 会遵循执行。",
-  "personaCustomPromptPlaceholder": "例：我更看重第一性原理分析，不要表面趋势罗列..."
+  "personaCustomPromptPlaceholder": "例：我更看重第一性原理分析，不要表面趋势罗列...",
+  "cards": "知识卡片",
+  "cardsEmpty": "还没有知识卡片，AI 阅读器会自动生成。",
+  "cardSelectPrompt": "选择一张知识卡片阅读",
+  "cardSummary": "摘要",
+  "cardInsights": "核心洞察",
+  "cardQuotes": "原文金句",
+  "cardActions": "行动建议",
+  "cardRelated": "关联卡片"
 }

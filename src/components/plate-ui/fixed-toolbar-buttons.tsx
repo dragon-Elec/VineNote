@@ -30,11 +30,12 @@ import {
   StrikethroughIcon,
   UnderlineIcon,
   // WandSparklesIcon,
+  WandSparklesIcon,
 } from 'lucide-react';
 
 import { MoreDropdownMenu } from '@/components/plate-ui/more-dropdown-menu';
 
-// import { AIToolbarButton } from './ai-toolbar-button';
+import { AIToolbarButton } from './ai-toolbar-button';
 import { AlignDropdownMenu } from './align-dropdown-menu';
 import { ColorDropdownMenu } from './color-dropdown-menu';
 import { CommentToolbarButton } from './comment-toolbar-button';
@@ -74,12 +75,12 @@ export function FixedToolbarButtons() {
             <RedoToolbarButton />
           </ToolbarGroup>
           
-          {/* todo: add ai function */}
-          {/* <ToolbarGroup>
+          {/* AI commands */}
+          <ToolbarGroup>
             <AIToolbarButton tooltip={t('aiCommands')}>
               <WandSparklesIcon />
             </AIToolbarButton>
-          </ToolbarGroup> */}
+          </ToolbarGroup>
 
           <ToolbarGroup>
             <ExportToolbarButton>

@@ -19,8 +19,7 @@ const FocusAction = function () {
       <Tooltip>
         <TooltipTrigger asChild>
           <Icon
-            style={{ marginLeft: "20px" }}
-            className="cursor-pointer"
+            className="cursor-pointer ml-5"
             size={16}
             onClick={() => setFocusMode(!isFocusMode)}
           />

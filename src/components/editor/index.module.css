@@ -1,6 +1,6 @@
 .editor {
   flex: 1;
-  height: 100vh;
+  height: 100dvh;
   position: relative;
   width: 0;/* 强制宽度计算 */
   min-width: 0;
@@ -38,8 +38,8 @@
 }
 
 .editor_main {
-  height: 100vh;
-  max-height: 100vh;
+  height: 100dvh;
+  max-height: 100dvh;
   padding-top: 45px;
 }
 

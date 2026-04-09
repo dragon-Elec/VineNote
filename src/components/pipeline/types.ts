@@ -1,4 +1,6 @@
 // Shared types for the AI Pipeline (Sources, Inbox, Cards)
+import { Rss, Mic, Play, FileText, Bookmark, PenLine } from "lucide-react";
+import type { LucideIcon } from "lucide-react";
 
 export interface Source {
   id: string;
@@ -21,6 +23,8 @@ export interface InboxItem {
   status: "unread" | "reading" | "processed" | "archived";
   word_count?: number;
   ingested_at: string;
+  reader_status?: "pending" | "fetching" | "ready" | "card_generated";
+  content_source?: "full" | "summary";
 }
 
 export interface InboxBadges {
@@ -28,11 +32,34 @@ export interface InboxBadges {
   total: number;
 }
 
-export const SOURCE_TYPE_LABELS: Record<Source["source_type"], { icon: string; label: string }> = {
-  rss: { icon: "📰", label: "RSS" },
-  podcast: { icon: "🎙️", label: "Podcast" },
-  youtube: { icon: "🎬", label: "YouTube" },
-  pdf: { icon: "📄", label: "PDF" },
-  bookmark: { icon: "🔖", label: "Bookmarks" },
-  manual: { icon: "✏️", label: "Manual" },
+export interface Card {
+  id: string;
+  title: string;
+  summary?: string;
+  key_insights: string[];
+  quotes: string[];
+  tags: string[];
+  action_items: string[];
+  topic_keys: string[];
+  topic_fingerprint?: string;
+  source_items: string[];   // inbox_item ids
+  file_path?: string;
+  created_at: string;
+}
+
+export interface CardConnection {
+  card_id: string;
+  related_card_id: string;
+  shared_tags: string[];
+  related_title?: string;
+  related_summary?: string;
+}
+
+export const SOURCE_TYPE_LABELS: Record<Source["source_type"], { Icon: LucideIcon; label: string }> = {
+  rss: { Icon: Rss, label: "RSS" },
+  podcast: { Icon: Mic, label: "Podcast" },
+  youtube: { Icon: Play, label: "YouTube" },
+  pdf: { Icon: FileText, label: "PDF" },
+  bookmark: { Icon: Bookmark, label: "Bookmarks" },
+  manual: { Icon: PenLine, label: "Manual" },
 };

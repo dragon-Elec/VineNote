@@ -284,5 +284,13 @@
   "personaOutputActions": "Generate action suggestions",
   "personaCustomPrompt": "Custom Instructions",
   "personaCustomPromptTip": "Any additional reading instructions for the AI.",
-  "personaCustomPromptPlaceholder": "e.g. Focus on first-principles analysis, not surface trends..."
+  "personaCustomPromptPlaceholder": "e.g. Focus on first-principles analysis, not surface trends...",
+  "cards": "Cards",
+  "cardsEmpty": "No cards yet. The AI reader will generate them automatically.",
+  "cardSelectPrompt": "Select a card to read",
+  "cardSummary": "Summary",
+  "cardInsights": "Key Insights",
+  "cardQuotes": "Quotes",
+  "cardActions": "Action Items",
+  "cardRelated": "Related Cards"
 }

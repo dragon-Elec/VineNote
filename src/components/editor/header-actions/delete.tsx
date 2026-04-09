@@ -32,8 +32,7 @@ const DeleteAction = function () {
           <Tooltip>
             <TooltipTrigger asChild>
               <Trash2
-                style={{ marginLeft: "20px" }}
-                className={cn("cursor-pointer", "text-destructive")}
+                className={cn("cursor-pointer ml-5", "text-destructive")}
                 size={16}
               />
             </TooltipTrigger>

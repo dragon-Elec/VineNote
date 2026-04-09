@@ -34,8 +34,7 @@ const ExportAction = function () {
           <Tooltip>
             <TooltipTrigger asChild>
               <ArrowRightFromLine
-                style={{ marginLeft: "20px" }}
-                className="cursor-pointer"
+                className="cursor-pointer ml-5"
                 size={16}
               />
             </TooltipTrigger>

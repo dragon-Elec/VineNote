@@ -1,12 +1,16 @@
 .info_title {
   font-size: 14px;
-  line-height: 14px;
+  line-height: 1.25;
   margin-right: 16px;
+  max-width: 200px;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
 }
 
 .info_count {
   font-size: 12px;
-  line-height: 12px;
+  line-height: 1.25;
 }
 
 .tag_command {

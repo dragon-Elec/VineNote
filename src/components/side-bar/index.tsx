@@ -2,6 +2,7 @@ import NavigationBar from "../navigation-bar";
 import NotesList from "../notes-list";
 import SourcesPanel from "../pipeline/sources";
 import InboxPanel from "../pipeline/inbox";
+import CardsPanel from "../pipeline/cards";
 import useFocusMode from "../editor/controllers/focus-mode";
 import { useSelectedNav } from "../navigation-bar/controllers/selected-nav";
 import { cn } from "@/lib/utils";
@@ -33,6 +34,11 @@ const SideBar = function () {
       {selectedNav === "inbox" && (
         <div className={styles.pipeline_panel}>
           <InboxPanel />
+        </div>
+      )}
+      {selectedNav === "cards" && (
+        <div className={styles.pipeline_panel}>
+          <CardsPanel />
         </div>
       )}
     </motion.div>

@@ -41,6 +41,8 @@ import { setFont, type Font } from "@/utils/set-font";
 import { setConfig, getConfig } from "@/utils/store-config";
 import i18n from "@/i18n";
 import { cn } from "@/lib/utils";
+import { invoke } from "@tauri-apps/api/core";
+import { useAiChatConfig } from "@/lib/ai-chat-config";
 
 export type Language = "en" | "zh";
 
@@ -155,6 +157,22 @@ export function SettingsProvider({ children }: ConfigProviderProps) {
         setTheme(config.theme);
         const merged = { ...defaultSettings, ...config };
         setSettings(merged);
+        // Sync AI config to the editor's chat config store (copilot + AI menu)
+        useAiChatConfig.getState().setConfig({
+          endpoint: merged.aiEndpoint ?? "",
+          apiKey: merged.aiKey ?? merged.modelApiKey ?? "",
+          writerModel: merged.aiModels?.writer ?? "gpt-4o-mini",
+        });
+        // Sync persisted AI config to Rust backend so the scheduler is ready
+        // immediately on startup without requiring the user to re-open Settings.
+        invoke("update_ai_config", {
+          endpoint: merged.aiEndpoint ?? "",
+          apiKey: merged.aiKey ?? merged.modelApiKey ?? "",
+          readerModel: merged.aiModels?.reader ?? "gpt-4o-mini",
+          writerModel: merged.aiModels?.writer ?? "gpt-4o",
+          systemPrompt: buildSystemPrompt(merged),
+          collectIntervalMins: 30,
+        }).catch(() => {});
       }
     });
   }, []);
@@ -167,6 +185,30 @@ export function SettingsProvider({ children }: ConfigProviderProps) {
 }
 
 // ── Settings Dialog ───────────────────────────────────────────────────────────
+
+function buildSystemPrompt(s: ISettings): string {
+  const p = s.persona;
+  const parts: string[] = [];
+  if (p.identity) parts.push(p.identity);
+  if (p.focusAreas.length > 0)
+    parts.push(`My focus areas: ${p.focusAreas.join(", ")}.`);
+  const valueMap = {
+    actionable: "Prioritize actionable, practical insights.",
+    depth: "Prioritize depth and rigorous analysis over breadth.",
+    comprehensive: "Provide comprehensive coverage of the topic.",
+  };
+  parts.push(valueMap[p.valueFilter]);
+  const styleMap = {
+    academic: "Use an academic, analytical reading lens.",
+    practitioner: "Use a practitioner, hands-on perspective.",
+    casual: "Keep notes casual and exploratory.",
+  };
+  parts.push(styleMap[p.readingStyle]);
+  if (p.customPrompt) parts.push(p.customPrompt);
+  if (parts.length === 0)
+    return "You are a knowledge management assistant that extracts structured insights from articles.";
+  return parts.join(" ");
+}
 
 type SettingsTab = "appearance" | "ai" | "persona";
 
@@ -271,6 +313,24 @@ export function SettingsDialog({ children }: { children: ReactNode }) {
     };
     setSettings(next);
     setConfig(JSON.stringify(next));
+
+    // Sync AI config to the editor's chat config store
+    useAiChatConfig.getState().setConfig({
+      endpoint: next.aiEndpoint,
+      apiKey: next.aiKey,
+      writerModel: next.aiModels.writer,
+    });
+    // Sync AI config to Rust backend (for background scheduler)
+    const systemPrompt = buildSystemPrompt(next);
+    invoke("update_ai_config", {
+      endpoint: next.aiEndpoint,
+      apiKey: next.aiKey,
+      readerModel: next.aiModels.reader,
+      writerModel: next.aiModels.writer,
+      systemPrompt,
+      collectIntervalMins: 30,
+    }).catch((e) => console.error("update_ai_config:", e));
+
     setOpen(false);
   };
 

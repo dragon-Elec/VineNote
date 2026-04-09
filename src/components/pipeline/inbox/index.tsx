@@ -15,10 +15,10 @@ const STATUS_FILTERS = [
 ] as const;
 
 const STATUS_DOT: Record<string, string> = {
-  unread: "bg-blue-500",
-  reading: "bg-yellow-500",
-  processed: "bg-green-500",
-  archived: "bg-muted-foreground",
+  unread: "bg-primary",
+  reading: "bg-amber-400 dark:bg-amber-500",
+  processed: "bg-muted-foreground/40",
+  archived: "bg-muted-foreground/20",
 };
 
 export default function InboxPanel() {
@@ -66,7 +66,7 @@ export default function InboxPanel() {
         <div className="flex items-center gap-2">
           <span className="text-sm font-medium text-foreground">{t("inbox")}</span>
           {badges.unread > 0 && (
-            <span className="inline-flex items-center justify-center w-4 h-4 rounded-full bg-blue-500 text-[9px] font-bold text-white">
+            <span className="inline-flex items-center justify-center w-4 h-4 rounded-full bg-primary text-[9px] font-bold text-primary-foreground">
               {badges.unread > 99 ? "99+" : badges.unread}
             </span>
           )}
@@ -171,7 +171,7 @@ export default function InboxPanel() {
                     title={t("markProcessed")}
                     onClick={(e) => handleMarkProcessed(item.id, e)}
                   >
-                    <Check size={10} className="text-green-500" />
+                    <Check size={10} className="text-primary" />
                   </Button>
                 )}
                 {item.status !== "archived" && (

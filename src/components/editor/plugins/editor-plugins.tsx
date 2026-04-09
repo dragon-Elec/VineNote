@@ -26,12 +26,12 @@ import { BlockDiscussion } from '@/components/plate-ui/block-discussion';
 import { SuggestionBelowNodes } from '@/components/plate-ui/suggestion-line-break';
 
 // import { aiPlugins } from './ai-plugins';
+import { aiPlugins } from './ai-plugins';
 import { alignPlugin } from './align-plugin';
 import { autoformatPlugin } from './autoformat-plugin';
 import { basicNodesPlugins } from './basic-nodes-plugins';
 import { blockMenuPlugins } from './block-menu-plugins';
 import { commentsPlugin } from './comments-plugin';
-import { cursorOverlayPlugin } from './cursor-overlay-plugin';
 import { deletePlugins } from './delete-plugins';
 import { dndPlugins } from './dnd-plugins';
 import { equationPlugins } from './equation-plugins';
@@ -87,8 +87,7 @@ export const viewPlugins = [
 
 export const editorPlugins = [
   // AI
-  // todo: add ai function
-  //...aiPlugins,
+  ...aiPlugins,
 
   // Nodes
   ...viewPlugins,
@@ -104,7 +103,6 @@ export const editorPlugins = [
     },
   }),
   autoformatPlugin,
-  cursorOverlayPlugin,
   ...blockMenuPlugins,
   ...dndPlugins,
   EmojiPlugin.configure({ options: { data: emojiMartData as any } }),

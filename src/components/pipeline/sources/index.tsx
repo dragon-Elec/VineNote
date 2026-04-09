@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
-import { Plus, RefreshCw, Trash2, ToggleLeft, ToggleRight, Rss } from "lucide-react";
+import { Plus, RefreshCw, Trash2, ToggleLeft, ToggleRight, Rss, Link } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
@@ -135,7 +135,10 @@ export default function SourcesPanel() {
               {(Object.keys(SOURCE_TYPE_LABELS) as Source["source_type"][]).map(
                 (type) => (
                   <SelectItem key={type} value={type}>
-                    {SOURCE_TYPE_LABELS[type].icon} {SOURCE_TYPE_LABELS[type].label}
+                    <span className="flex items-center gap-1.5">
+                      {(() => { const { Icon } = SOURCE_TYPE_LABELS[type]; return <Icon size={12} />; })()}
+                      {SOURCE_TYPE_LABELS[type].label}
+                    </span>
                   </SelectItem>
                 )
               )}
@@ -185,7 +188,7 @@ export default function SourcesPanel() {
         )}
         {sources.map((source) => {
           const typeInfo = SOURCE_TYPE_LABELS[source.source_type] ?? {
-            icon: "📌",
+            Icon: Link,
             label: source.source_type,
           };
           const isSelected = selectedSourceId === source.id;
@@ -199,7 +202,7 @@ export default function SourcesPanel() {
               )}
               onClick={() => setSelectedSourceId(source.id)}
             >
-              <span className="text-base leading-none shrink-0">{typeInfo.icon}</span>
+              <typeInfo.Icon size={14} className="shrink-0 text-muted-foreground" />
               <div className="flex-1 min-w-0">
                 <div className="text-xs font-medium truncate">{source.name}</div>
                 {source.last_fetch && (
@@ -218,7 +221,7 @@ export default function SourcesPanel() {
                   onClick={(e) => handleToggle(source, e)}
                 >
                   {source.active ? (
-                    <ToggleRight size={12} className="text-green-500" />
+                    <ToggleRight size={12} className="text-primary" />
                   ) : (
                     <ToggleLeft size={12} className="text-muted-foreground" />
                   )}

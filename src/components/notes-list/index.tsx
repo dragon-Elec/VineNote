@@ -335,8 +335,8 @@ const NotesList = function () {
                         <div
                           className={cn(
                             styles.item_name,
-                            "text-sm text-muted-foreground",
-                            isSelected ? "text-accent-foreground" : ""
+                            "text-[13px] font-medium",
+                            isSelected ? "text-accent-foreground" : "text-foreground"
                           )}
                         >
                           {name}
@@ -345,8 +345,8 @@ const NotesList = function () {
                       <div
                         className={cn(
                           styles.item_time,
-                          "text-muted-foreground text-sm",
-                          isSelected ? "text-accent-foreground" : ""
+                          "text-[11px] tabular-nums",
+                          isSelected ? "text-accent-foreground/70" : "text-muted-foreground"
                         )}
                       >
                         {metadata.modified || metadata.created}

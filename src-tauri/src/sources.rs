@@ -213,6 +213,31 @@ pub async fn collect_all_sources(
     Ok(total)
 }
 
+/// Scheduler-callable version: takes &AppHandle and &DbState directly.
+pub async fn collect_all_sources_raw(app: &tauri::AppHandle, state: &DbState) -> usize {
+    let source_ids: Vec<String> = {
+        let Ok(conn) = state.conn.lock() else { return 0 };
+        let Ok(mut stmt) = conn.prepare("SELECT id FROM sources WHERE active = 1") else { return 0 };
+        let Ok(mut rows) = stmt.query([]) else { return 0 };
+        let mut ids = Vec::new();
+        while let Ok(Some(row)) = rows.next() {
+            if let Ok(id) = row.get::<_, String>(0) {
+                ids.push(id);
+            }
+        }
+        ids
+    };
+
+    let mut total = 0usize;
+    for id in source_ids {
+        match collect_source_inner(app, state, id).await {
+            Ok(n) => total += n,
+            Err(e) => eprintln!("[scheduler] collect error: {e}"),
+        }
+    }
+    total
+}
+
 // ── Internal RSS collector ────────────────────────────────────────────────────
 
 async fn collect_rss(

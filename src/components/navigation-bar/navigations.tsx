@@ -1,7 +1,7 @@
 "use client";
 
 import { useTranslation } from "react-i18next";
-import { Notebook, Tag, Settings, CircleHelp, Rss, Inbox } from "lucide-react";
+import { Notebook, Tag, Settings, CircleHelp, Rss, Inbox, Sparkles } from "lucide-react";
 import { Button } from "../ui/button";
 import { cn } from '@/lib/utils';
 import { useSelectedNav } from './controllers/selected-nav';
@@ -35,28 +35,31 @@ const Navigation = function () {
       Icon: Inbox,
       badge: inboxBadges.unread,
     },
+    { id: "cards", name: t("cards"), Icon: Sparkles, badge: 0 },
   ];
 
-  const renderNavButton = (id: string, name: string, Icon: React.ElementType, badge?: number) => (
+  const renderNavButton = (id: string, name: string, Icon: React.ElementType, badge?: number) => {
+    const isActive = selectedNav === id;
+    return (
     <Button
       key={id}
       variant="ghost"
       className={cn(
-        "w-full justify-start cursor-pointer relative",
-        selectedNav === id ? "bg-accent" : ""
+        "w-full justify-start cursor-pointer relative text-[13px]",
+        isActive ? "bg-accent" : ""
       )}
-      style={{ fontSize: "13px" }}
       onClick={() => setSelectedNav(id)}
     >
-      <Icon className="text-muted-foreground" size={14} />
-      <span className="text-muted-foreground">{name}</span>
+      <Icon className={cn("shrink-0", isActive ? "text-foreground" : "text-muted-foreground")} size={14} />
+      <span className={cn(isActive ? "text-foreground font-medium" : "text-muted-foreground")}>{name}</span>
       {badge != null && badge > 0 && (
-        <span className="ml-auto inline-flex items-center justify-center min-w-[16px] h-4 rounded-full bg-blue-500 text-[9px] font-bold text-white px-1">
+        <span className="ml-auto inline-flex items-center justify-center min-w-[16px] h-4 rounded-full bg-primary text-[9px] font-bold text-primary-foreground px-1">
           {badge > 99 ? "99+" : badge}
         </span>
       )}
     </Button>
   );
+  };
 
   return (
     <div className={styles.navigation}>
@@ -80,8 +83,7 @@ const Navigation = function () {
       <SettingsDialog>
         <Button
           variant="ghost"
-          className="w-full justify-start cursor-pointer"
-          style={{ fontSize: "13px" }}
+          className="w-full justify-start cursor-pointer text-[13px]"
         >
           <Settings className="text-muted-foreground" size={14} />
           <span className="text-muted-foreground">{t("settings")}</span>
@@ -90,8 +92,7 @@ const Navigation = function () {
 
       <Button
         variant="ghost"
-        className="w-full justify-start cursor-pointer"
-        style={{ fontSize: "13px" }}
+        className="w-full justify-start cursor-pointer text-[13px]"
         onClick={() => openIssue()}
       >
         <CircleHelp className="text-muted-foreground" size={14} />
