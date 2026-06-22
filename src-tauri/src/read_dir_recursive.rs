@@ -95,3 +95,22 @@ pub fn read_dir_recursive(path: &str) -> String {
 
     json_result
 }
+
+pub fn read_dir_siblings(dir_path: &str) -> Result<String, String> {
+    let path = PathBuf::from(dir_path);
+    if !path.is_dir() {
+        return Err(format!("'{}' is not a directory", dir_path));
+    }
+
+    let entries = fs::read_dir(&path).map_err(|e| e.to_string())?;
+    let mut files = Vec::new();
+
+    for entry in entries {
+        let entry = entry.map_err(|e| e.to_string())?;
+        let file_info = get_file_info(entry.path());
+        files.push(file_info);
+    }
+
+    let json_result = serde_json::to_string(&files).map_err(|e| e.to_string())?;
+    Ok(json_result)
+}

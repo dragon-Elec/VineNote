@@ -5,6 +5,8 @@ import type { TImageElement } from '@udecode/plate-media';
 
 import { cn } from '@udecode/cn';
 import { NodeApi, SlateElement } from '@udecode/plate';
+import { useSelectedFile } from '@/components/notes-list/controllers/selected-file';
+import { resolveRelativeAsset } from '@/utils/resolve-path';
 
 export function ImageElementStatic({
   children,
@@ -21,6 +23,10 @@ export function ImageElementStatic({
     TCaptionElement & {
       width: number;
     };
+
+  const selectedFile = useSelectedFile((state) => state.selectedFile);
+  const filePath = selectedFile?.path || '';
+  const resolvedUrl = resolveRelativeAsset(filePath, url);
 
   return (
     <SlateElement
@@ -39,8 +45,8 @@ export function ImageElementStatic({
               'rounded-sm'
             )}
             alt=""
-            src={url}
             {...nodeProps}
+            src={resolvedUrl}
           />
           {caption && (
             <figcaption className="mx-auto mt-2 h-[24px] max-w-full">

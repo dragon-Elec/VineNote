@@ -8,6 +8,8 @@ import { PlateElement, withHOC } from '@udecode/plate/react';
 import { useTranslation } from 'react-i18next';
 import { Caption, CaptionTextarea } from './caption';
 import { MediaPopover } from './media-popover';
+import { useSelectedFile } from '@/components/notes-list/controllers/selected-file';
+import { resolveRelativeAsset } from '@/utils/resolve-path';
 import {
   mediaResizeHandleVariants,
   Resizable,
@@ -24,6 +26,12 @@ export const ImageElement = withHOC(
       const { isDragging, handleRef } = useDraggable({
         element: props.element,
       });
+
+      const element = props.element as any;
+      const url = element?.url || '';
+      const selectedFile = useSelectedFile((state) => state.selectedFile);
+      const filePath = selectedFile?.path || '';
+      const resolvedUrl = resolveRelativeAsset(filePath, url);
 
       return (
         <MediaPopover plugin={ImagePlugin}>
@@ -54,6 +62,7 @@ export const ImageElement = withHOC(
                   )}
                   alt=""
                   {...nodeProps}
+                  src={resolvedUrl}
                 />
                 <ResizeHandle
                   className={mediaResizeHandleVariants({
