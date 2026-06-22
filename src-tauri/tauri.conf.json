@@ -24,6 +24,13 @@
   "bundle": {
     "active": true,
     "targets": "all",
+    "linux": {
+      "deb": {
+        "files": {
+          "/usr/share/applications/vineedit.desktop": "resources/vineedit.desktop"
+        }
+      }
+    },
     "macOS": {
       "hardenedRuntime": true
     },

@@ -1,0 +1,16 @@
+[Desktop Entry]
+Name=VineEdit
+Comment=Standalone Markdown Editor
+Exec=vinenote %F
+Icon=vinenote
+Terminal=false
+Type=Application
+Categories=Office;TextEditor;Utility;
+MimeType=text/markdown;text/plain;
+Keywords=markdown;editor;edit;text;write;
+StartupNotify=true
+Actions=NewWindow;
+
+[Desktop Action NewWindow]
+Name=New Window
+Exec=vinenote
